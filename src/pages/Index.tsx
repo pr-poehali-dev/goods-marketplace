@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 
@@ -94,8 +95,10 @@ const orders = [
 export default function Index() {
   const [activeSection, setActiveSection] = useState('home');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [favorites, setFavorites] = useState<number[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [priceRange, setPriceRange] = useState<number[]>([0, 500000]);
   const { toast } = useToast();
 
   const addToCart = (product: Product) => {
@@ -132,6 +135,28 @@ export default function Index() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.priceNum * item.quantity, 0);
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const toggleFavorite = (productId: number) => {
+    setFavorites(prev => {
+      if (prev.includes(productId)) {
+        toast({
+          title: 'Удалено из избранного',
+        });
+        return prev.filter(id => id !== productId);
+      } else {
+        toast({
+          title: 'Добавлено в избранное',
+        });
+        return [...prev, productId];
+      }
+    });
+  };
+
+  const filteredProducts = products.filter(
+    product => product.priceNum >= priceRange[0] && product.priceNum <= priceRange[1]
+  );
+
+  const favoriteProducts = products.filter(product => favorites.includes(product.id));
 
   const handleCheckout = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -179,6 +204,21 @@ export default function Index() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setActiveSection('favorites')}
+              className="gap-2 relative"
+            >
+              <Icon name="Heart" size={16} className={favorites.length > 0 ? 'fill-accent text-accent' : ''} />
+              {favorites.length > 0 && (
+                <Badge variant="default" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                  {favorites.length}
+                </Badge>
+              )}
+              <span className="hidden sm:inline">Избранное</span>
+            </Button>
+            
             <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2 relative">
@@ -378,12 +418,24 @@ export default function Index() {
                 <div className="grid md:grid-cols-3 gap-8">
                   {products.map((product) => (
                     <Card key={product.id} className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="aspect-square overflow-hidden">
+                      <div className="aspect-square overflow-hidden relative">
                         <img 
                           src={product.image} 
                           alt={product.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 h-10 w-10 p-0 bg-background/80 hover:bg-background"
+                          onClick={() => toggleFavorite(product.id)}
+                        >
+                          <Icon 
+                            name="Heart" 
+                            size={20} 
+                            className={favorites.includes(product.id) ? 'fill-accent text-accent' : ''}
+                          />
+                        </Button>
                       </div>
                       <CardContent className="p-6 space-y-3">
                         <Badge variant="outline" className="text-xs">{product.category}</Badge>
@@ -427,24 +479,70 @@ export default function Index() {
 
         {activeSection === 'catalog' && (
           <div className="container py-12 animate-fade-in">
-            <h2 className="font-serif text-4xl mb-8">Каталог</h2>
-            <Tabs defaultValue="all" className="w-full">
-              <TabsList className="mb-8">
-                <TabsTrigger value="all">Все товары</TabsTrigger>
-                <TabsTrigger value="watches">Часы</TabsTrigger>
-                <TabsTrigger value="accessories">Аксессуары</TabsTrigger>
-                <TabsTrigger value="jewelry">Украшения</TabsTrigger>
-              </TabsList>
-              <TabsContent value="all" className="space-y-8">
-                <div className="grid md:grid-cols-3 gap-8">
-                  {products.map((product) => (
+            <div className="flex flex-col md:flex-row gap-8">
+              <aside className="md:w-64 space-y-6">
+                <div>
+                  <h3 className="font-serif text-2xl mb-4">Фильтры</h3>
+                </div>
+                
+                <Card className="border-0 shadow-md">
+                  <CardContent className="p-6 space-y-4">
+                    <div>
+                      <Label className="text-base font-semibold mb-3 block">Цена</Label>
+                      <div className="space-y-4">
+                        <Slider
+                          value={priceRange}
+                          onValueChange={setPriceRange}
+                          min={0}
+                          max={500000}
+                          step={10000}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>₽ {priceRange[0].toLocaleString('ru-RU')}</span>
+                          <span>₽ {priceRange[1].toLocaleString('ru-RU')}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => setPriceRange([0, 500000])}
+                    >
+                      Сбросить фильтры
+                    </Button>
+                  </CardContent>
+                </Card>
+              </aside>
+              
+              <div className="flex-1">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="font-serif text-4xl">Каталог</h2>
+                  <p className="text-muted-foreground">Найдено: {filteredProducts.length}</p>
+                </div>
+                
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {filteredProducts.map((product) => (
                     <Card key={product.id} className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="aspect-square overflow-hidden">
+                      <div className="aspect-square overflow-hidden relative">
                         <img 
                           src={product.image} 
                           alt={product.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 h-10 w-10 p-0 bg-background/80 hover:bg-background"
+                          onClick={() => toggleFavorite(product.id)}
+                        >
+                          <Icon 
+                            name="Heart" 
+                            size={20} 
+                            className={favorites.includes(product.id) ? 'fill-accent text-accent' : ''}
+                          />
+                        </Button>
                       </div>
                       <CardContent className="p-6 space-y-3">
                         <Badge variant="outline" className="text-xs">{product.category}</Badge>
@@ -460,8 +558,22 @@ export default function Index() {
                     </Card>
                   ))}
                 </div>
-              </TabsContent>
-            </Tabs>
+                
+                {filteredProducts.length === 0 && (
+                  <div className="text-center py-16">
+                    <Icon name="Search" size={64} className="mx-auto text-muted-foreground mb-4" />
+                    <p className="text-xl text-muted-foreground">Товары не найдены</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-6"
+                      onClick={() => setPriceRange([0, 500000])}
+                    >
+                      Сбросить фильтры
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -529,6 +641,60 @@ export default function Index() {
                 Оставить отзыв
               </Button>
             </div>
+          </div>
+        )}
+
+        {activeSection === 'favorites' && (
+          <div className="container py-12 animate-fade-in">
+            <h2 className="font-serif text-4xl mb-8">Избранное</h2>
+            
+            {favoriteProducts.length === 0 ? (
+              <div className="text-center py-24">
+                <Icon name="Heart" size={64} className="mx-auto text-muted-foreground mb-4" />
+                <p className="text-xl text-muted-foreground mb-2">Ваш список избранного пуст</p>
+                <p className="text-muted-foreground mb-6">Добавьте товары, которые вам понравились</p>
+                <Button onClick={() => setActiveSection('catalog')}>
+                  Перейти в каталог
+                </Button>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-8">
+                {favoriteProducts.map((product) => (
+                  <Card key={product.id} className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div className="aspect-square overflow-hidden relative">
+                      <img 
+                        src={product.image} 
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2 h-10 w-10 p-0 bg-background/80 hover:bg-background"
+                        onClick={() => toggleFavorite(product.id)}
+                      >
+                        <Icon 
+                          name="Heart" 
+                          size={20} 
+                          className="fill-accent text-accent"
+                        />
+                      </Button>
+                    </div>
+                    <CardContent className="p-6 space-y-3">
+                      <Badge variant="outline" className="text-xs">{product.category}</Badge>
+                      <h4 className="font-serif text-xl">{product.name}</h4>
+                      <p className="text-2xl font-light text-accent">{product.price}</p>
+                      <Button 
+                        className="w-full"
+                        onClick={() => addToCart(product)}
+                      >
+                        В корзину
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
